@@ -1,0 +1,107 @@
+group 'in.kcrob'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'scala'
+apply from : 'common.gradle'
+
+sourceCompatibility = 1.8
+
+buildscript {
+  repositories {
+      jcenter()
+      maven {
+          url "https://plugins.gradle.org/m2/"
+      }
+  }
+  dependencies {
+      classpath "com.github.jengelman.gradle.plugins:shadow:2.0.1"
+  }
+}
+
+repositories {
+  mavenCentral()
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'application'
+
+
+dependencies {
+   compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: LOG4J_VERSION
+   compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: LOG4J_VERSION
+}
+
+allprojects {
+   group 'in.kcrob'
+
+   apply plugin: 'java'
+   apply plugin: 'scala'
+
+   sourceCompatibility = 1.8
+
+   buildscript {
+       repositories {
+           jcenter()
+           maven {
+               url "https://plugins.gradle.org/m2/"
+           }
+       }
+   }
+
+   repositories {
+       mavenCentral()
+   }
+
+   apply plugin: 'com.github.johnrengelman.shadow'
+   apply plugin: 'application'
+
+   dependencies {
+       compile fileTree(dir: 'libs', include: ['*.jar'])
+       compile group: 'org.scala-lang', name: 'scala-library', version: SCALA_VERSION
+       compile group: 'org.slf4j', name: 'slf4j-api', version: SLF4J_VERSION //Mostly because it is copmatible with log4j-api 2.8.2
+
+       testCompile group: 'org.scalamock', name: scalaName ('scalamock-scalatest-support'), version: SCALA_MOCK_TEST_SUPPORT_VERSION //This includes scala lang and scala test
+       testCompile group: 'junit', name: 'junit', version: JUNIT_VERSION
+   }
+
+   //#####
+   //BEGIN:: Building test jars and allowing other subprojects to depend on testJar of some subproject
+   //Inspired by https://softnoise.wordpress.com/2014/09/07/gradle-sub-project-test-dependencies-in-multi-project-builds/
+   //#####
+   configurations {
+       testJar.extendsFrom (testCompile)
+   }
+
+   task buildTestJar (type: Jar, dependsOn: testClasses) {
+       from sourceSets.test.output
+       classifier = 'test'
+   }
+
+   task scalaTest(dependsOn: ['testClasses'], type: JavaExec) {
+       main = 'org.scalatest.tools.Runner'
+       args = ['-R', 'build/classes/test', '-o']
+       classpath = sourceSets.test.runtimeClasspath
+   }
+
+   test.dependsOn scalaTest
+
+   artifacts {
+       testJar buildTestJar
+   }
+
+   //######
+   //END
+   //######
+
+}
+
+// #######
+// Making every subproject depend on scala common
+// #######
+configure(subprojects.findAll {it.name != 'scalacommon'}) {
+   dependencies {
+       compile project(':scalacommon')
+       testCompile project(path: ':scalacommon', configuration: 'testJar')
+   }
+}

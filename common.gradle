@@ -1,0 +1,3 @@
+ext.scalaName = { name ->
+   name + "_" + SCALA_MAJOR_VERSION
+}
